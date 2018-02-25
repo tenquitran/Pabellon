@@ -56,5 +56,8 @@ namespace PabellonApp
 		GLint m_uTextureSampler;
 
 		GLuint m_normal;
+
+		// TODO: temp
+		bool m_hasTexCoords;
 	};
 }

@@ -26,7 +26,8 @@ bool PabellonScene::initialize(GLfloat aspectRatio, const OpenGLInfo& openGlInfo
 
 	// Take the model in focus.
 #if 1
-	m_spCamera->translateZ(-120.0);
+	m_spCamera->translateZ(-50.0);
+	//m_spCamera->translateZ(-120.0);
 #endif
 
 	glEnable(GL_DEPTH_TEST);
@@ -51,7 +52,7 @@ bool PabellonScene::initialize(GLfloat aspectRatio, const OpenGLInfo& openGlInfo
 	bool res = m_pabellon.initialize(m_spProgram->getProgram(), "data//pavillon_barcelone_v1.2.obj", m_spCamera);
 
 #if _DEBUG
-	DWORD ticksElapsed = GetTickCount() - tick0;    // 33790 [milliseconds]
+	DWORD ticksElapsed = GetTickCount() - tick0;    // about 34000 [milliseconds]
 #endif
 
 	if (!res)

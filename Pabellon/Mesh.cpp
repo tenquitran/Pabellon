@@ -71,6 +71,8 @@ void Mesh::extractMeshData(const aiMesh* pMesh)
 
 	const bool HasTexCoords = pMesh->HasTextureCoords(0);    // we are interested only in the first set of texture coordinates
 
+	m_hasTexCoords = HasTexCoords;
+
 	std::vector<GLfloat> texCoords(VertexCount * 2);
 
 	unsigned int vertexCurrent   = {};
@@ -160,15 +162,18 @@ void Mesh::setupShaderData(
 	glVertexAttribPointer(AttrVertexPos, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 	glEnableVertexAttribArray(AttrVertexPos);
 
-	// Set up the texture coordinates buffer.
+	if (m_hasTexCoords)
+	{
+		// Set up the texture coordinates buffer.
 
-	const GLuint AttrTextureCoord = 1;
+		const GLuint AttrTextureCoord = 1;
 
-	glGenBuffers(1, &m_texCoord);
-	glBindBuffer(GL_ARRAY_BUFFER, m_texCoord);
-	glBufferData(GL_ARRAY_BUFFER, texCoords.size() * sizeof(texCoords[0]), &texCoords[0], GL_STATIC_DRAW);
-	glVertexAttribPointer(AttrTextureCoord, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-	glEnableVertexAttribArray(AttrTextureCoord);
+		glGenBuffers(1, &m_texCoord);
+		glBindBuffer(GL_ARRAY_BUFFER, m_texCoord);
+		glBufferData(GL_ARRAY_BUFFER, texCoords.size() * sizeof(texCoords[0]), &texCoords[0], GL_STATIC_DRAW);
+		glVertexAttribPointer(AttrTextureCoord, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glEnableVertexAttribArray(AttrTextureCoord);
+	}
 
 	// Set up the index buffer.
 
@@ -211,12 +216,16 @@ void Mesh::initializeTextureData()
 
 	// Set up the texture sampler.
 
+	glUseProgram(m_program);
+
 	m_uTextureSampler = glGetUniformLocation(m_program, "uSampler");
 	if (-1 == m_uTextureSampler)
 	{
 		assert(false); throw std::runtime_error("Failed to get the texture sampler location");
 	}
 	glUniform1i(m_uTextureSampler, 0);
+
+	glUseProgram(0);
 }
 
 void Mesh::render() const

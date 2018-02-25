@@ -238,11 +238,25 @@ bool Model::loadMaterials(const aiScene* pScene)
 				pMaterial->GetTexture(textureType, texIndex, &textureFileName);
 
 				texFileNames[texIndex] = textureFileName.C_Str();
+
+				std::wcout << L"Texture file: " << textureFileName.C_Str() << '\n';
 			}
 
 			if (texFileNames.empty())
 			{
-				std::wcout << m_modelFilePath.c_str() << L": no texture files\n";
+				if (aiTextureType_DIFFUSE == textureType)
+				{
+					std::wcout << L"No diffuse textures\n";
+				} 
+				else if (aiTextureType_SPECULAR == textureType)
+				{
+					std::wcout << L"No specular textures\n";
+				}
+				else
+				{
+					std::wcout << L"No textures\n";
+					assert(false);    // new texture type?
+				}
 			}
 			else if (!materialItr->second->addTextures(m_modelDirectoryPath, texFileNames, textureType))
 			{
