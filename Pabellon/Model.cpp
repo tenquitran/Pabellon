@@ -14,7 +14,7 @@ const Model::TextureTypes Model::TexTypes = { aiTextureType_DIFFUSE, aiTextureTy
 
 
 Model::Model(void)
-	: m_program{}, m_unMvp(-1), m_scaleFactor(1.0f)
+	: m_program{}, /*m_unMvp(-1),*/ m_unView(-1), m_unModelView(-1), m_unProjection(-1), m_scaleFactor(1.0f)
 {
 }
 
@@ -76,12 +76,36 @@ bool Model::initialize(GLuint program, const std::string& filePath, const std::u
 
 bool Model::initializeMatrices()
 {
+#if 0
 	m_unMvp = glGetUniformLocation(m_program, "mvp");
 	if (-1 == m_unMvp)
 	{
 		std::wcerr << L"Model: failed to get the MVP uniform location\n";
 		assert(false); return false;
 	}
+#else
+	
+	m_unView = glGetUniformLocation(m_program, "View");
+	if (-1 == m_unView)
+	{
+		std::wcerr << L"Model: failed to get the Model uniform location\n";
+		assert(false); return false;
+	}
+
+	m_unModelView = glGetUniformLocation(m_program, "ModelView");
+	if (-1 == m_unModelView)
+	{
+		std::wcerr << L"Model: failed to get the ModelView uniform location\n";
+		assert(false); return false;
+	}
+
+	m_unProjection = glGetUniformLocation(m_program, "Projection");
+	if (-1 == m_unProjection)
+	{
+		std::wcerr << L"Model: failed to get the Projection uniform location\n";
+		assert(false); return false;
+	}
+#endif
 
 	updateMatrices();
 
@@ -91,7 +115,13 @@ bool Model::initializeMatrices()
 void Model::updateMatrices()
 {
 	assert(m_program);
+#if 0
 	assert(-1 != m_unMvp);
+#else
+	assert(-1 != m_unView);
+	assert(-1 != m_unModelView);
+	assert(-1 != m_unProjection);
+#endif
 
 	glUseProgram(m_program);
 
@@ -114,7 +144,13 @@ void Model::updateMatrices()
 
 	m_mvp = m_projection * m_view * m_model;
 
+#if 0
 	glUniformMatrix4fv(m_unMvp, 1, GL_FALSE, glm::value_ptr(m_mvp));
+#else
+	glUniformMatrix4fv(m_unView,       1, GL_FALSE, glm::value_ptr(m_view));
+	glUniformMatrix4fv(m_unModelView,  1, GL_FALSE, glm::value_ptr(m_view * m_model));
+	glUniformMatrix4fv(m_unProjection, 1, GL_FALSE, glm::value_ptr(m_projection));
+#endif
 
 	glm::mat4 modelView = m_pCamera->getModelViewMatrix();
 
@@ -314,7 +350,7 @@ bool Model::loadMeshes(const aiScene* pScene, const aiNode* pNode)
 
 void Model::render() const
 {
-	glUniformMatrix4fv(m_unMvp, 1, GL_FALSE, glm::value_ptr(m_mvp));
+	//glUniformMatrix4fv(m_unMvp, 1, GL_FALSE, glm::value_ptr(m_mvp));
 
 	for (const auto& itr : m_meshes)
 	{

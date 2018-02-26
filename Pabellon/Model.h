@@ -86,8 +86,19 @@ namespace PabellonApp
 		// Key: material index in the assimp scene; value: material data.
 		MaterialCollection m_materials;
 
+#if 0
 		// MVP matrix uniform.
 		GLint m_unMvp;
+#else
+		// View matrix uniform.
+		GLint m_unView;
+
+		// Model-View matrix uniform.
+		GLint m_unModelView;
+
+		// Projection matrix uniform.
+		GLint m_unProjection;
+#endif
 
 		// Model matrix.
 		glm::mat4 m_model;

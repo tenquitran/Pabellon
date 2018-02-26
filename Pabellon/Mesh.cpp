@@ -21,6 +21,9 @@ Mesh::~Mesh()
 {
 	// TODO: delete other VBOs as required
 
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
 	// WARNING: don't delete the texture object here; it isn't owned by this class.
 #if 0
 	if (0 != m_texture)
@@ -30,21 +33,23 @@ Mesh::~Mesh()
 	}
 #endif
 
+	if (0 != m_normal)
+	{
+		glDeleteBuffers(1, &m_normal);
+	}
+
 	if (0 != m_index)
 	{
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glDeleteBuffers(1, &m_index);
 	}
 
 	if (0 != m_texCoord)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, 0);    // is this correct?
 		glDeleteBuffers(1, &m_texCoord);
 	}
 
 	if (0 != m_vbo)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glDeleteBuffers(1, &m_vbo);
 	}
 
@@ -67,16 +72,27 @@ void Mesh::extractMeshData(const aiMesh* pMesh)
 
 	const unsigned int VertexCount = pMesh->mNumVertices;
 
-	std::vector<GLfloat> vertexCoords(VertexCount * 3);
-
 	const bool HasTexCoords = pMesh->HasTextureCoords(0);    // we are interested only in the first set of texture coordinates
 
-	m_hasTexCoords = HasTexCoords;
+	const bool HasNormals = pMesh->HasNormals();
 
-	std::vector<GLfloat> texCoords(VertexCount * 2);
+	std::vector<GLfloat> vertexCoords(VertexCount * 3);
+
+	std::vector<GLfloat> texCoords;
+	if (HasTexCoords)
+	{
+		texCoords.resize(VertexCount * 2);
+	}
+
+	std::vector<GLfloat> normals;
+	if (HasNormals)
+	{
+		normals.resize(VertexCount * 3);
+	}
 
 	unsigned int vertexCurrent   = {};
 	unsigned int texCoordCurrent = {};
+	unsigned int normalCurrent   = {};
 
 	for (unsigned int i = 0; i < VertexCount; ++i)
 	{
@@ -84,17 +100,17 @@ void Mesh::extractMeshData(const aiMesh* pMesh)
 		vertexCoords[vertexCurrent++] = pMesh->mVertices[i].y;
 		vertexCoords[vertexCurrent++] = pMesh->mVertices[i].z;
 
-		// TODO: extract normals
-
 		if (HasTexCoords)
 		{
 			texCoords[texCoordCurrent++] = pMesh->mTextureCoords[0][i].x;
 			texCoords[texCoordCurrent++] = pMesh->mTextureCoords[0][i].y;
 		}
-		else
+
+		if (HasNormals)
 		{
-			texCoords[texCoordCurrent++] = 0.0f;
-			texCoords[texCoordCurrent++] = 0.0f;
+			normals[normalCurrent++] = pMesh->mNormals[i].x;
+			normals[normalCurrent++] = pMesh->mNormals[i].y;
+			normals[normalCurrent++] = pMesh->mNormals[i].z;
 		}
 	}
 
@@ -106,47 +122,38 @@ void Mesh::extractMeshData(const aiMesh* pMesh)
 	{
 		const unsigned int FaceCount = pMesh->mNumFaces;
 
-		// NOTE: curves, for example, has 2 indices instead of 3.
-		//indices.resize(FaceCount * 3);    // we assume that the model consists of triangles
-
-		unsigned int indexCurrent = {};
+		// Assuming that the model consists of triangles, reserve space for 3 indices per face.
+		// Note that curves, for example, have 2 indices, so we need to shrink the container afterwards.
+		indices.reserve(FaceCount * 3);
 
 		for (unsigned int f = 0; f < FaceCount; ++f)
 		{
 			const unsigned int IndexCount = pMesh->mFaces[f].mNumIndices;
-
-#if 0
-			// TODO: temp
-			if (3 != IndexCount)
-			{
-				int tmp = 1;
-			}
-
-			assert(3 == IndexCount);
-#endif
+			assert(IndexCount < 4);
 
 			for (unsigned int i = 0; i < IndexCount; ++i)
 			{
 				indices.push_back(pMesh->mFaces[f].mIndices[i]);
-				//indices[indexCurrent++] = pMesh->mFaces[f].mIndices[i];
 			}
 		}
+
+		indices.shrink_to_fit();
 	}
 
 	if (   vertexCoords.empty()
-		|| indices.empty()
-		|| texCoords.empty())
+		|| indices.empty())    // if there are indeed no indices, we should change the rendering function accordingly
 	{
-		throw EXCEPTION(L"Model: one or more data sets are empty");
+		throw EXCEPTION(L"Model: no vertex coordinates and/or indices");
 	}
 
-	setupShaderData(vertexCoords, indices, texCoords);
+	setupShaderData(vertexCoords, indices, texCoords, normals);
 }
 
 void Mesh::setupShaderData(
 	const std::vector<GLfloat>& vertexCoords, 
 	const std::vector<GLuint>& indices, 
-	const std::vector<GLfloat>& texCoords)
+	const std::vector<GLfloat>& texCoords,
+	const std::vector<GLfloat>& normals)
 {
 	glGenVertexArrays(1, &m_vao);
 	glBindVertexArray(m_vao);
@@ -158,21 +165,33 @@ void Mesh::setupShaderData(
 	glBufferData(GL_ARRAY_BUFFER, vertexCoords.size() * sizeof(vertexCoords[0]), &vertexCoords[0], GL_STATIC_DRAW);
 
 	const GLuint AttrVertexPos = 0;
-
 	glVertexAttribPointer(AttrVertexPos, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 	glEnableVertexAttribArray(AttrVertexPos);
 
-	if (m_hasTexCoords)
+	if (!texCoords.empty())
 	{
 		// Set up the texture coordinates buffer.
-
-		const GLuint AttrTextureCoord = 1;
 
 		glGenBuffers(1, &m_texCoord);
 		glBindBuffer(GL_ARRAY_BUFFER, m_texCoord);
 		glBufferData(GL_ARRAY_BUFFER, texCoords.size() * sizeof(texCoords[0]), &texCoords[0], GL_STATIC_DRAW);
+
+		const GLuint AttrTextureCoord = 1;
 		glVertexAttribPointer(AttrTextureCoord, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 		glEnableVertexAttribArray(AttrTextureCoord);
+	}
+
+	if (!normals.empty())
+	{
+		// Set up the normal buffer.
+
+		glGenBuffers(1, &m_normal);
+		glBindBuffer(GL_ARRAY_BUFFER, m_normal);
+		glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(normals[0]), &normals[0], GL_STATIC_DRAW);
+
+		const GLuint AttrNormal = 2;
+		glVertexAttribPointer(AttrNormal, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glEnableVertexAttribArray(AttrNormal);
 	}
 
 	// Set up the index buffer.

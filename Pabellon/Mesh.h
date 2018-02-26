@@ -24,10 +24,12 @@ namespace PabellonApp
 		// Throws: Exception, std::bad_alloc
 		void extractMeshData(const aiMesh* pMesh);
 
+		// Note: containers with texture coordinates and normals can be empty.
 		void setupShaderData(
 			const std::vector<GLfloat>& vertexCoords,
 			const std::vector<GLuint>& indices, 
-			const std::vector<GLfloat>& texCoords);
+			const std::vector<GLfloat>& texCoords,
+			const std::vector<GLfloat>& normals);
 
 		void initializeTextureData();
 
@@ -55,9 +57,6 @@ namespace PabellonApp
 
 		GLint m_uTextureSampler;
 
-		GLuint m_normal;
-
-		// TODO: temp
-		bool m_hasTexCoords;
+		GLuint m_normal;    // normal buffer
 	};
 }
