@@ -87,18 +87,23 @@ namespace PabellonApp
 		MaterialCollection m_materials;
 
 #if 0
-		// MVP matrix uniform.
-		GLint m_unMvp;
-#else
 		// View matrix uniform.
 		GLint m_unView;
+#endif
 
 		// Model-View matrix uniform.
 		GLint m_unModelView;
 
+#if 0
 		// Projection matrix uniform.
 		GLint m_unProjection;
 #endif
+
+		// Model-View-Projection matrix uniform.
+		GLint m_unMvp;
+
+		// Normal matrix uniform.
+		GLint m_unNormal;
 
 		// Model matrix.
 		glm::mat4 m_model;

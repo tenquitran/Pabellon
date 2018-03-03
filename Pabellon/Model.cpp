@@ -14,7 +14,7 @@ const Model::TextureTypes Model::TexTypes = { aiTextureType_DIFFUSE, aiTextureTy
 
 
 Model::Model(void)
-	: m_program{}, /*m_unMvp(-1),*/ m_unView(-1), m_unModelView(-1), m_unProjection(-1), m_scaleFactor(1.0f)
+	: m_program{}, /*m_unView(-1),*/ m_unModelView(-1), /*m_unProjection(-1),*/ m_unMvp(-1), m_unNormal(-1), m_scaleFactor(1.0f)
 {
 }
 
@@ -24,9 +24,9 @@ Model::~Model()
 
 bool Model::initialize(GLuint program, const std::string& filePath, const std::unique_ptr<Camera>& spCamera)
 {
-	m_program = program;
+	m_program       = program;
 	m_modelFilePath = filePath;
-	m_pCamera = spCamera.get();
+	m_pCamera       = spCamera.get();
 
 	if (m_modelFilePath.empty())
 	{
@@ -77,20 +77,13 @@ bool Model::initialize(GLuint program, const std::string& filePath, const std::u
 bool Model::initializeMatrices()
 {
 #if 0
-	m_unMvp = glGetUniformLocation(m_program, "mvp");
-	if (-1 == m_unMvp)
-	{
-		std::wcerr << L"Model: failed to get the MVP uniform location\n";
-		assert(false); return false;
-	}
-#else
-	
 	m_unView = glGetUniformLocation(m_program, "View");
 	if (-1 == m_unView)
 	{
 		std::wcerr << L"Model: failed to get the Model uniform location\n";
 		assert(false); return false;
 	}
+#endif
 
 	m_unModelView = glGetUniformLocation(m_program, "ModelView");
 	if (-1 == m_unModelView)
@@ -99,6 +92,7 @@ bool Model::initializeMatrices()
 		assert(false); return false;
 	}
 
+#if 0
 	m_unProjection = glGetUniformLocation(m_program, "Projection");
 	if (-1 == m_unProjection)
 	{
@@ -106,6 +100,20 @@ bool Model::initializeMatrices()
 		assert(false); return false;
 	}
 #endif
+
+	m_unMvp = glGetUniformLocation(m_program, "MVP");
+	if (-1 == m_unMvp)
+	{
+		std::wcerr << L"Model: failed to get the MVP uniform location\n";
+		assert(false); return false;
+	}
+
+	m_unNormal = glGetUniformLocation(m_program, "Normal");
+	if (-1 == m_unNormal)
+	{
+		std::wcerr << L"Model: failed to get the Normal uniform location\n";
+		assert(false); return false;
+	}
 
 	updateMatrices();
 
@@ -115,13 +123,12 @@ bool Model::initializeMatrices()
 void Model::updateMatrices()
 {
 	assert(m_program);
-#if 0
-	assert(-1 != m_unMvp);
-#else
-	assert(-1 != m_unView);
+
+	//assert(-1 != m_unView);
 	assert(-1 != m_unModelView);
-	assert(-1 != m_unProjection);
-#endif
+	//assert(-1 != m_unProjection);
+	assert(-1 != m_unMvp);
+	assert(-1 != m_unNormal);
 
 	glUseProgram(m_program);
 
@@ -142,25 +149,23 @@ void Model::updateMatrices()
 	// Scale.
 	m_model *= glm::scale(glm::mat4(1.0f), glm::vec3(m_scaleFactor, m_scaleFactor, m_scaleFactor));
 
+	glm::mat4 modelView = m_view * m_model;
+
 	m_mvp = m_projection * m_view * m_model;
 
-#if 0
-	glUniformMatrix4fv(m_unMvp, 1, GL_FALSE, glm::value_ptr(m_mvp));
-#else
-	glUniformMatrix4fv(m_unView,       1, GL_FALSE, glm::value_ptr(m_view));
-	glUniformMatrix4fv(m_unModelView,  1, GL_FALSE, glm::value_ptr(m_view * m_model));
-	glUniformMatrix4fv(m_unProjection, 1, GL_FALSE, glm::value_ptr(m_projection));
-#endif
+	//glUniformMatrix4fv(m_unView,       1, GL_FALSE, glm::value_ptr(m_view));
+	glUniformMatrix4fv(m_unModelView,  1, GL_FALSE, glm::value_ptr(modelView));
+	//glUniformMatrix4fv(m_unProjection, 1, GL_FALSE, glm::value_ptr(m_projection));
+	glUniformMatrix4fv(m_unMvp,        1, GL_FALSE, glm::value_ptr(m_mvp));
 
-	glm::mat4 modelView = m_pCamera->getModelViewMatrix();
+	//glm::mat4 modelViewMt = m_pCamera->getModelViewMatrix();
 
 	// WARNING: we are using the fact that there are no non-uniform scaling. If this will change, use the entire 4x4 matrix.
-	glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(modelView)));
+	//glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(modelViewMt)));
 
-	// TODO: turn on
-#if 0
-	glUniformMatrix4fv(m_unNormal, 1, GL_FALSE, glm::value_ptr(normalMatrix));
-#endif
+	glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(modelView)));
+
+	glUniformMatrix3fv(m_unNormal, 1, GL_FALSE, glm::value_ptr(normal));
 
 	glUseProgram(0);
 }
@@ -330,7 +335,10 @@ bool Model::loadMeshes(const aiScene* pScene, const aiNode* pNode)
 			return false;
 		}
 
-		m_meshes.emplace_back(std::make_unique<Mesh>(meshName.C_Str(), m_program, materialItr->second->getTextures(), pMesh));
+		const aiMaterial *pMaterial = pScene->mMaterials[pMesh->mMaterialIndex];
+
+		m_meshes.emplace_back(std::make_unique<Mesh>(
+			meshName.C_Str(), m_program, materialItr->second->getTextures(), pMesh, pMaterial));
 	}
 
 	// Recursively process node's children.
@@ -350,8 +358,6 @@ bool Model::loadMeshes(const aiScene* pScene, const aiNode* pNode)
 
 void Model::render() const
 {
-	//glUniformMatrix4fv(m_unMvp, 1, GL_FALSE, glm::value_ptr(m_mvp));
-
 	for (const auto& itr : m_meshes)
 	{
 		itr->render();

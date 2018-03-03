@@ -141,23 +141,7 @@ void PabellonScene::render() const
 
 	glUseProgram(m_spProgram->getProgram());
 
-#if 0
-	glBindVertexArray(m_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_index);
-#endif
-
-#if 0
-	glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, 0);
-#endif
-
 	m_pabellon.render();
-
-#if 0
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-#endif
 
 	glUseProgram(0);
 }
